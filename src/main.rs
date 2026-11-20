@@ -18,9 +18,10 @@ impl TrieNode {
 }
 
 fn add_to_trie(node: &mut TrieNode, label_set: &Vec<u32>, label_set_idx: usize) {
+    node.count += 1;
+
     if label_set_idx >= label_set.len() {
         node.is_leaf = true;
-        node.count = 1;
         return;
     }
 
@@ -34,7 +35,6 @@ fn add_to_trie(node: &mut TrieNode, label_set: &Vec<u32>, label_set_idx: usize) 
         .unwrap()
         .as_mut()
         .unwrap();
-    next_node.count += 1;
 
     add_to_trie(next_node, label_set, label_set_idx + 1);
 }
