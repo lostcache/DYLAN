@@ -38,12 +38,30 @@ fn add_to_trie(node: &mut TrieNode, label_set: &Vec<u32>, label_set_idx: usize) 
     add_to_trie(next_node, label_set, label_set_idx + 1);
 }
 
-fn build_trie(obj_n_label_set: Vec<(String, Vec<u32>)>) {
+fn build_trie(obj_n_label_set: Vec<(String, Vec<u32>)>) -> TrieNode {
     let mut root = TrieNode::new();
 
     for (_, label_set) in obj_n_label_set.iter() {
         add_to_trie(&mut root, label_set, 0);
     }
+
+    root
+}
+
+fn count_subrees_obj_postorder(n: &mut TrieNode) -> u32 {
+    if n.is_leaf {
+        return n.count;
+    }
+
+    for nei in n.nei.iter_mut().flatten() {
+        n.count += count_subrees_obj_postorder(nei);
+    }
+
+    n.count
+}
+
+fn count_subtrees_objs(n: &mut TrieNode) {
+    count_subrees_obj_postorder(n);
 }
 
 fn build_freq_map(obj_labels: &[Vec<String>]) -> HashMap<&String, u32> {
@@ -128,5 +146,7 @@ fn main() {
 
     let obj_n_label_set = build_obj_n_label_id_set(&obj_labels, &label_id_map);
 
-    build_trie(obj_n_label_set);
+    let mut root = build_trie(obj_n_label_set);
+
+    count_subtrees_objs(&mut root);
 }
