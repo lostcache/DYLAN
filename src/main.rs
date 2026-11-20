@@ -20,7 +20,7 @@ impl TrieNode {
 fn add_to_trie(node: &mut TrieNode, label_set: &Vec<u32>, label_set_idx: usize) {
     if label_set_idx >= label_set.len() {
         node.is_leaf = true;
-        node.count += 1;
+        node.count = 1;
         return;
     }
 
@@ -34,6 +34,7 @@ fn add_to_trie(node: &mut TrieNode, label_set: &Vec<u32>, label_set_idx: usize) 
         .unwrap()
         .as_mut()
         .unwrap();
+    next_node.count += 1;
 
     add_to_trie(next_node, label_set, label_set_idx + 1);
 }
@@ -46,22 +47,6 @@ fn build_trie(obj_n_label_set: Vec<(String, Vec<u32>)>) -> TrieNode {
     }
 
     root
-}
-
-fn count_subrees_obj_postorder(n: &mut TrieNode) -> u32 {
-    if n.is_leaf {
-        return n.count;
-    }
-
-    for nei in n.nei.iter_mut().flatten() {
-        n.count += count_subrees_obj_postorder(nei);
-    }
-
-    n.count
-}
-
-fn count_subtrees_objs(n: &mut TrieNode) {
-    count_subrees_obj_postorder(n);
 }
 
 fn build_freq_map(obj_labels: &[Vec<String>]) -> HashMap<&String, u32> {
@@ -147,6 +132,4 @@ fn main() {
     let obj_n_label_set = build_obj_n_label_id_set(&obj_labels, &label_id_map);
 
     let mut root = build_trie(obj_n_label_set);
-
-    count_subtrees_objs(&mut root);
 }
