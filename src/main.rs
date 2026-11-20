@@ -49,6 +49,22 @@ fn build_trie(obj_n_label_set: Vec<(String, Vec<u32>)>) -> TrieNode {
     root
 }
 
+fn materialize_hnsw() {
+    todo!();
+}
+
+fn materialize_hnsw_for_trie(node: &mut TrieNode, maybe_paren_count: Option<u32>) {
+    if maybe_paren_count != Some(node.count.ilog2()) {
+        materialize_hnsw();
+    } else {
+        // inherit index
+    }
+
+    for nei in node.nei.iter_mut().flatten() {
+        materialize_hnsw_for_trie(nei, Some(node.count));
+    }
+}
+
 fn build_freq_map(obj_labels: &[Vec<String>]) -> HashMap<&String, u32> {
     let mut label_freq_map: HashMap<&String, u32> = HashMap::new();
 
@@ -132,4 +148,6 @@ fn main() {
     let obj_n_label_set = build_obj_n_label_id_set(&obj_labels, &label_id_map);
 
     let mut root = build_trie(obj_n_label_set);
+
+    materialize_hnsw_for_trie(&mut root, None);
 }
