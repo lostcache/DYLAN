@@ -95,9 +95,9 @@ fn build_obj_n_label_id_set(
     obj_labels: &Vec<Vec<String>>,
     label_id_map: &HashMap<&String, u32>,
 ) -> Vec<(String, Vec<u32>)> {
-    let mut obj_n_label_set: Vec<(String, Vec<u32>)> = Vec::new();
-    for obj_n_labels in obj_labels.iter() {
-        let mut it = obj_n_labels.iter();
+    let mut obj_n_label_set_vec: Vec<(String, Vec<u32>)> = Vec::new();
+    for obj_n_labels_vec in obj_labels.iter() {
+        let mut it = obj_n_labels_vec.iter();
 
         let Some(obj) = it.next() else {
             continue;
@@ -110,12 +110,14 @@ fn build_obj_n_label_id_set(
             };
         }
 
-        obj_n_label_set.push((obj.clone(), label_set));
+        label_set.sort_unstable();
+
+        obj_n_label_set_vec.push((obj.clone(), label_set));
     }
 
-    obj_n_label_set.sort_by(|(_, label_set_a), (_, label_set_b)| label_set_a.cmp(label_set_b));
+    obj_n_label_set_vec.sort_by(|(_, label_set_a), (_, label_set_b)| label_set_a.cmp(label_set_b));
 
-    obj_n_label_set
+    obj_n_label_set_vec
 }
 
 fn main() {
