@@ -136,16 +136,19 @@ fn build_obj_n_label_id_set(
     obj_n_label_set_vec
 }
 
-fn main() {
-    let obj_labels: Vec<Vec<String>> = Vec::new();
-
-    let label_freq_map = build_freq_map(&obj_labels);
+fn prepreocess_obj_n_labels(obj_labels: &[Vec<String>]) -> Vec<(String, Vec<u32>)> {
+    let label_freq_map = build_freq_map(obj_labels);
 
     let label_freq_vec = sort_label_by_freq(&label_freq_map);
 
     let label_id_map = generate_label_ids(&label_freq_vec);
 
-    let obj_n_label_set = build_obj_n_label_id_set(&obj_labels, &label_id_map);
+    build_obj_n_label_id_set(obj_labels, &label_id_map)
+}
+
+fn main() {
+    let obj_labels: Vec<Vec<String>> = Vec::new();
+    let obj_n_label_set = prepreocess_obj_n_labels(&obj_labels);
 
     let mut root = build_trie(obj_n_label_set);
 
