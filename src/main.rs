@@ -1,12 +1,49 @@
 use std::collections::HashMap;
 
+#[derive(Clone)]
 struct TrieNode {
     is_node: bool,
-    nei: Vec<TrieNode>,
+    nei: Vec<Option<TrieNode>>,
 }
 
-fn build_trie(_obj_n_label_set: Vec<(String, Vec<u32>)>) {
-    todo!();
+impl TrieNode {
+    fn new() -> Self {
+        TrieNode {
+            is_node: false,
+            nei: vec![None; 10],
+        }
+    }
+}
+
+fn add_to_trie(node: &mut TrieNode, label_set: &Vec<u32>, label_set_idx: usize) {
+    if label_set_idx >= label_set.len() {
+        return;
+    }
+
+    if node.nei.get(label_set[label_set_idx] as usize).is_none() {
+        node.nei[label_set[label_set_idx] as usize] = Some(TrieNode::new());
+    }
+
+    let next_node = node
+        .nei
+        .get_mut(label_set[label_set_idx] as usize)
+        .unwrap()
+        .as_mut()
+        .unwrap();
+
+    if label_set_idx == label_set.len() {
+        next_node.is_node = true;
+    }
+
+    add_to_trie(next_node, label_set, label_set_idx + 1);
+}
+
+fn build_trie(obj_n_label_set: Vec<(String, Vec<u32>)>) {
+    let mut root = TrieNode::new();
+
+    for (_, label_set) in obj_n_label_set.iter() {
+        add_to_trie(&mut root, label_set, 0);
+    }
 }
 
 fn build_freq_map(obj_labels: &Vec<Vec<String>>) -> HashMap<&String, u32> {
