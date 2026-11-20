@@ -2,14 +2,16 @@ use std::collections::HashMap;
 
 #[derive(Clone)]
 struct TrieNode {
-    is_node: bool,
+    count: u32,
+    is_leaf: bool,
     nei: Vec<Option<TrieNode>>,
 }
 
 impl TrieNode {
     fn new() -> Self {
         TrieNode {
-            is_node: false,
+            count: 0,
+            is_leaf: false,
             nei: vec![None; 10],
         }
     }
@@ -17,6 +19,8 @@ impl TrieNode {
 
 fn add_to_trie(node: &mut TrieNode, label_set: &Vec<u32>, label_set_idx: usize) {
     if label_set_idx >= label_set.len() {
+        node.is_leaf = true;
+        node.count += 1;
         return;
     }
 
@@ -30,10 +34,6 @@ fn add_to_trie(node: &mut TrieNode, label_set: &Vec<u32>, label_set_idx: usize) 
         .unwrap()
         .as_mut()
         .unwrap();
-
-    if label_set_idx == label_set.len() {
-        next_node.is_node = true;
-    }
 
     add_to_trie(next_node, label_set, label_set_idx + 1);
 }
