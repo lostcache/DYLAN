@@ -46,7 +46,7 @@ fn build_trie(obj_n_label_set: Vec<(String, Vec<u32>)>) {
     }
 }
 
-fn build_freq_map(obj_labels: &Vec<Vec<String>>) -> HashMap<&String, u32> {
+fn build_freq_map(obj_labels: &[Vec<String>]) -> HashMap<&String, u32> {
     let mut label_freq_map: HashMap<&String, u32> = HashMap::new();
 
     for obj_n_labels in obj_labels.iter() {
@@ -69,8 +69,7 @@ fn build_freq_map(obj_labels: &Vec<Vec<String>>) -> HashMap<&String, u32> {
 }
 
 fn sort_label_by_freq<'a>(label_freq_map: &HashMap<&'a String, u32>) -> Vec<(&'a String, u32)> {
-    let mut label_freq_vec: Vec<(&String, u32)> = Vec::new();
-    label_freq_vec.reserve(label_freq_map.len());
+    let mut label_freq_vec: Vec<(&String, u32)> = Vec::with_capacity(label_freq_map.len());
 
     for (label, freq) in label_freq_map.iter() {
         label_freq_vec.push((label, *freq));
@@ -81,18 +80,16 @@ fn sort_label_by_freq<'a>(label_freq_map: &HashMap<&'a String, u32>) -> Vec<(&'a
 }
 
 fn generate_label_ids<'a>(label_freq_vec: &Vec<(&'a String, u32)>) -> HashMap<&'a String, u32> {
-    let mut next_id: u32 = 0;
     let mut label_id_map: HashMap<&'a String, u32> = HashMap::new();
-    for (label, _) in label_freq_vec {
+    for (next_id, (label, _)) in (0_u32..).zip(label_freq_vec.iter()) {
         label_id_map.insert(label, next_id);
-        next_id += 1;
     }
 
     label_id_map
 }
 
 fn build_obj_n_label_id_set(
-    obj_labels: &Vec<Vec<String>>,
+    obj_labels: &[Vec<String>],
     label_id_map: &HashMap<&String, u32>,
 ) -> Vec<(String, Vec<u32>)> {
     let mut obj_n_label_set_vec: Vec<(String, Vec<u32>)> = Vec::new();
