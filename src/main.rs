@@ -51,6 +51,10 @@ fn add_to_trie(node: &mut TrieNode, label_set: &Vec<usize>, label_set_idx: usize
     }
 
     if node.nei.get(label_set[label_set_idx]).is_none() {
+        return;
+    }
+
+    if node.nei[label_set[label_set_idx]].is_none() {
         node.nei[label_set[label_set_idx]] = Some(TrieNode::new());
     }
 
@@ -78,15 +82,19 @@ fn materialize_hnsw() {
     todo!();
 }
 
-fn materialize_hnsw_for_trie(node: &mut TrieNode, maybe_paren_count: Option<u32>) {
-    if maybe_paren_count != Some(node.count.ilog2()) {
+fn materialize_hnsw_for_trie(node: &mut TrieNode, maybe_parent_log_count: Option<u32>) {
+    let Some(log_size) = node.count.checked_ilog2() else {
+        return;
+    };
+
+    if maybe_parent_log_count != Some(log_size) {
         materialize_hnsw();
     } else {
         // inherit index
     }
 
     for nei in node.nei.iter_mut().flatten() {
-        materialize_hnsw_for_trie(nei, Some(node.count));
+        materialize_hnsw_for_trie(nei, Some(log_size));
     }
 }
 
