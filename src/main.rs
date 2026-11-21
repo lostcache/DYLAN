@@ -6,6 +6,7 @@ struct Arena {
     label_freq: Vec<u32>,
     label_id_map: HashMap<String, usize>,
     obj_n_label_set_vec: Vec<(String, Vec<usize>)>,
+    trie_nodes: Vec<TrieNode>,
 }
 
 impl Arena {
@@ -15,12 +16,14 @@ impl Arena {
         let label_freq: Vec<u32> = Vec::with_capacity(1024);
         let label_id_map: HashMap<String, usize> = HashMap::with_capacity(1024);
         let obj_n_label_set_vec: Vec<(String, Vec<usize>)> = Vec::with_capacity(1024);
+        let trie_nodes: Vec<TrieNode> = Vec::with_capacity(1024);
         Arena {
             objs,
             labels,
             label_freq,
             label_id_map,
             obj_n_label_set_vec,
+            trie_nodes,
         }
     }
 }
@@ -29,7 +32,7 @@ impl Arena {
 struct TrieNode {
     count: u32,
     is_leaf: bool,
-    nei: Vec<Option<TrieNode>>,
+    nei: Vec<Option<usize>>,
 }
 
 impl TrieNode {
@@ -37,45 +40,48 @@ impl TrieNode {
         TrieNode {
             count: 0,
             is_leaf: false,
-            nei: vec![None; 10],
+            nei: vec![None; 1024],
         }
     }
 }
 
-fn add_to_trie(node: &mut TrieNode, label_set: &Vec<usize>, label_set_idx: usize) {
-    node.count += 1;
+fn add_to_trie(
+    trie_nodes: &mut Vec<TrieNode>,
+    node_idx: usize,
+    label_set: &Vec<usize>,
+    label_set_idx: usize,
+) {
+    trie_nodes[node_idx].count += 1;
 
     if label_set_idx >= label_set.len() {
-        node.is_leaf = true;
+        trie_nodes[node_idx].is_leaf = true;
         return;
     }
 
-    if node.nei.get(label_set[label_set_idx]).is_none() {
-        return;
-    }
-
-    if node.nei[label_set[label_set_idx]].is_none() {
-        node.nei[label_set[label_set_idx]] = Some(TrieNode::new());
-    }
-
-    let next_node = node
+    if trie_nodes[node_idx]
         .nei
-        .get_mut(label_set[label_set_idx])
-        .unwrap()
-        .as_mut()
-        .unwrap();
+        .get(label_set[label_set_idx])
+        .is_none()
+    {
+        return;
+    }
 
-    add_to_trie(next_node, label_set, label_set_idx + 1);
+    if trie_nodes[node_idx].nei[label_set[label_set_idx]].is_none() {
+        trie_nodes.push(TrieNode::new());
+        trie_nodes[node_idx].nei[label_set[label_set_idx]] = Some(trie_nodes.len() - 1);
+    }
+
+    let next_node_idx = trie_nodes[node_idx].nei[label_set[label_set_idx]].unwrap();
+
+    add_to_trie(trie_nodes, next_node_idx, label_set, label_set_idx + 1);
 }
 
-fn build_trie(arena: &Arena) -> TrieNode {
-    let mut root = TrieNode::new();
+fn build_trie(arena: &mut Arena) {
+    arena.trie_nodes.push(TrieNode::new());
 
     for (_, label_set) in arena.obj_n_label_set_vec.iter() {
-        add_to_trie(&mut root, label_set, 0);
+        add_to_trie(&mut arena.trie_nodes, 0, label_set, 0);
     }
-
-    root
 }
 
 fn materialize_hnsw() {
@@ -179,7 +185,9 @@ fn main() {
     let obj_labels: Vec<Vec<String>> = Vec::new();
     prepreocess_obj_n_labels(&mut arena, &obj_labels);
 
-    let mut root = build_trie(&arena);
+    build_trie(&mut arena);
 
-    materialize_hnsw_for_trie(&mut root, None);
+    if let Some(root) = arena.trie_nodes.first_mut() {
+        materialize_hnsw_for_trie(root, None);
+    }
 }
