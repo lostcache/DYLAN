@@ -5,7 +5,7 @@ struct Arena {
     labels: Vec<String>,
     label_freq: Vec<u32>,
     label_id_map: HashMap<String, usize>,
-    obj_n_label_set_vec: Vec<(String, Vec<usize>)>,
+    obj_n_label_set_vec: Vec<(usize, Vec<usize>)>,
     trie_nodes: Vec<TrieNode>,
 }
 
@@ -15,7 +15,7 @@ impl Arena {
         let labels: Vec<String> = Vec::with_capacity(1024);
         let label_freq: Vec<u32> = Vec::with_capacity(1024);
         let label_id_map: HashMap<String, usize> = HashMap::with_capacity(1024);
-        let obj_n_label_set_vec: Vec<(String, Vec<usize>)> = Vec::with_capacity(1024);
+        let obj_n_label_set_vec: Vec<(usize, Vec<usize>)> = Vec::with_capacity(1024);
         let trie_nodes: Vec<TrieNode> = Vec::with_capacity(1024);
         Arena {
             objs,
@@ -28,59 +28,54 @@ impl Arena {
     }
 }
 
-#[derive(Clone)]
 struct TrieNode {
     count: u32,
-    is_leaf: bool,
     nei: Vec<Option<usize>>,
+    objs: Vec<usize>,
 }
 
 impl TrieNode {
     fn new() -> Self {
         TrieNode {
             count: 0,
-            is_leaf: false,
             nei: vec![None; 1024],
+            objs: Vec::new(),
         }
     }
 }
 
 fn add_to_trie(
     trie_nodes: &mut Vec<TrieNode>,
-    node_idx: usize,
-    label_set: &Vec<usize>,
-    label_set_idx: usize,
+    obj_id: usize,
+    label_set: &[usize],
+    terminal_label: usize,
 ) {
-    trie_nodes[node_idx].count += 1;
+    let mut cur = 0;
+    trie_nodes[cur].count += 1;
 
-    if label_set_idx >= label_set.len() {
-        trie_nodes[node_idx].is_leaf = true;
-        return;
+    for &label_id in label_set.iter().chain(std::iter::once(&terminal_label)) {
+        cur = match trie_nodes[cur].nei.get(label_id) {
+            Some(&Some(idx)) => idx,
+            Some(&None) => {
+                let idx = trie_nodes.len();
+                trie_nodes.push(TrieNode::new());
+                trie_nodes[cur].nei[label_id] = Some(idx);
+                idx
+            }
+            None => return,
+        };
+        trie_nodes[cur].count += 1;
     }
 
-    if trie_nodes[node_idx]
-        .nei
-        .get(label_set[label_set_idx])
-        .is_none()
-    {
-        return;
-    }
-
-    if trie_nodes[node_idx].nei[label_set[label_set_idx]].is_none() {
-        trie_nodes.push(TrieNode::new());
-        trie_nodes[node_idx].nei[label_set[label_set_idx]] = Some(trie_nodes.len() - 1);
-    }
-
-    let next_node_idx = trie_nodes[node_idx].nei[label_set[label_set_idx]].unwrap();
-
-    add_to_trie(trie_nodes, next_node_idx, label_set, label_set_idx + 1);
+    trie_nodes[cur].objs.push(obj_id);
 }
 
 fn build_trie(arena: &mut Arena) {
     arena.trie_nodes.push(TrieNode::new());
+    let terminal_label = arena.labels.len();
 
-    for (_, label_set) in arena.obj_n_label_set_vec.iter() {
-        add_to_trie(&mut arena.trie_nodes, 0, label_set, 0);
+    for (obj_id, (_, label_set)) in arena.obj_n_label_set_vec.iter().enumerate() {
+        add_to_trie(&mut arena.trie_nodes, obj_id, label_set, terminal_label);
     }
 }
 
@@ -88,8 +83,12 @@ fn materialize_hnsw() {
     todo!();
 }
 
-fn materialize_hnsw_for_trie(node: &mut TrieNode, maybe_parent_log_count: Option<u32>) {
-    let Some(log_size) = node.count.checked_ilog2() else {
+fn materialize_hnsw_for_trie(
+    trie_nodes: &Vec<TrieNode>,
+    node_idx: usize,
+    maybe_parent_log_count: Option<u32>,
+) {
+    let Some(log_size) = trie_nodes[node_idx].count.checked_ilog2() else {
         return;
     };
 
@@ -99,8 +98,8 @@ fn materialize_hnsw_for_trie(node: &mut TrieNode, maybe_parent_log_count: Option
         // inherit index
     }
 
-    for nei in node.nei.iter_mut().flatten() {
-        materialize_hnsw_for_trie(nei, Some(log_size));
+    for &neigh in trie_nodes[node_idx].nei.iter().flatten() {
+        materialize_hnsw_for_trie(trie_nodes, neigh, Some(log_size));
     }
 }
 
@@ -144,6 +143,7 @@ fn build_obj_n_label_id_set(arena: &mut Arena, obj_labels: &[Vec<String>]) {
         let Some(obj) = it.next() else {
             continue;
         };
+        arena.objs.push(obj.clone());
 
         let mut label_set: Vec<usize> = Vec::new();
         for label_str in it {
@@ -151,10 +151,11 @@ fn build_obj_n_label_id_set(arena: &mut Arena, obj_labels: &[Vec<String>]) {
                 label_set.push(label_id);
             };
         }
-
         label_set.sort_unstable();
 
-        arena.obj_n_label_set_vec.push((obj.clone(), label_set));
+        arena
+            .obj_n_label_set_vec
+            .push((arena.objs.len() - 1, label_set));
     }
 
     arena
@@ -162,17 +163,7 @@ fn build_obj_n_label_id_set(arena: &mut Arena, obj_labels: &[Vec<String>]) {
         .sort_by(|(_, label_set_a), (_, label_set_b)| label_set_a.cmp(label_set_b));
 }
 
-fn populate_objs_in_arena(arena: &mut Arena, obj_labels: &[Vec<String>]) {
-    for items in obj_labels.iter() {
-        if let Some(obj) = items.first() {
-            arena.objs.push(obj.clone());
-        }
-    }
-}
-
 fn prepreocess_obj_n_labels(arena: &mut Arena, obj_labels: &[Vec<String>]) {
-    populate_objs_in_arena(arena, obj_labels);
-
     let label_freq_map = build_label_freq_map(obj_labels);
 
     add_label_freq_to_arena_sorted(arena, &label_freq_map);
@@ -187,7 +178,7 @@ fn main() {
 
     build_trie(&mut arena);
 
-    if let Some(root) = arena.trie_nodes.first_mut() {
-        materialize_hnsw_for_trie(root, None);
+    if !arena.trie_nodes.is_empty() {
+        materialize_hnsw_for_trie(&arena.trie_nodes, 0, None);
     }
 }
