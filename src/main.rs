@@ -32,6 +32,7 @@ struct TrieNode {
     count: u32,
     nei: Vec<Option<usize>>,
     objs: Vec<usize>,
+    paren: Option<usize>,
 }
 
 impl TrieNode {
@@ -40,6 +41,7 @@ impl TrieNode {
             count: 0,
             nei: vec![None; 1024],
             objs: Vec::new(),
+            paren: None,
         }
     }
 }
@@ -50,32 +52,34 @@ fn add_to_trie(
     label_set: &[usize],
     terminal_label: usize,
 ) {
-    let mut cur = 0;
-    trie_nodes[cur].count += 1;
+    let mut curr_idx = 0;
+    trie_nodes[curr_idx].count += 1;
 
     for &label_id in label_set.iter().chain(std::iter::once(&terminal_label)) {
-        cur = match trie_nodes[cur].nei.get(label_id) {
+        let next_idx = match trie_nodes[curr_idx].nei.get(label_id) {
             Some(&Some(idx)) => idx,
             Some(&None) => {
                 let idx = trie_nodes.len();
                 trie_nodes.push(TrieNode::new());
-                trie_nodes[cur].nei[label_id] = Some(idx);
+                trie_nodes[curr_idx].nei[label_id] = Some(idx);
                 idx
             }
             None => return,
         };
-        trie_nodes[cur].count += 1;
+        trie_nodes[next_idx].count += 1;
+        trie_nodes[next_idx].paren = Some(curr_idx);
+        curr_idx = next_idx;
     }
 
-    trie_nodes[cur].objs.push(obj_id);
+    trie_nodes[curr_idx].objs.push(obj_id);
 }
 
 fn build_trie(arena: &mut Arena) {
     arena.trie_nodes.push(TrieNode::new());
     let terminal_label = arena.labels.len();
 
-    for (obj_id, (_, label_set)) in arena.obj_n_label_set_vec.iter().enumerate() {
-        add_to_trie(&mut arena.trie_nodes, obj_id, label_set, terminal_label);
+    for (obj_id, label_set) in &arena.obj_n_label_set_vec {
+        add_to_trie(&mut arena.trie_nodes, *obj_id, label_set, terminal_label);
     }
 }
 
